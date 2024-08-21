@@ -204,7 +204,8 @@ buildDB_sarek <- function(prefix = NULL, vcf_name = NULL, db_path = NULL) {
         dplyr::select(-group) %>%
         arrange(variant_id, sample) %>%
         ##### sarek specific #####
-        separate(ad, c("delete","ro","ao")) %>%
+        #separate(ad, c("delete","ro","ao")) %>% # haplotype caller
+        separate(ad, c("delete","ro","ao")) %>% # mutect2
         
         ##### SEQONE VERSION #########
         #mutate(ao = as.numeric(ao),
@@ -216,8 +217,8 @@ buildDB_sarek <- function(prefix = NULL, vcf_name = NULL, db_path = NULL) {
         #      filter(qa >= 10)
       ##### SAREK VERSION #########
       mutate(#ao = as.numeric(ao),
-             af = round(ao/as.numeric(dp), digits = 2), # because empty on seqone results
-             qa = 10*log10(gq)) %>%
+             af = round(as.numeric(ao)/as.numeric(dp), digits = 2), # because empty on seqone results
+             qa = 10*log10(as.numeric(gq))) %>%
         ## gq = probability that the call is incorrect = genotype quality
         ##  qa = same as phred score
         #########################         
