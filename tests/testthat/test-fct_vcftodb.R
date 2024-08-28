@@ -9,7 +9,9 @@ testthat::test_that("vcftodb works", {
   options(mc.cores = 3)
   for (vcf in vcf_list){
     print(vcf)
-    SomaVarDBTools::buildDB_seqone(prefix = prefix, vcf_name = vcf, db_path = db_path)
+    #SomaVarDBTools::buildDB_seqone(prefix = prefix, vcf_name = vcf, db_path = db_path)
+    #SomaVarDBTools::buildDB_sarek_haplotypecaller(prefix = prefix, vcf_name = vcf, db_path = db_path)
+    SomaVarDBTools::buildDB_sarek_mutect2(prefix = prefix, vcf_name = vcf, db_path = db_path)
   }
 
   SomaVarDBTools::addMDtodb(db_path = db_path, prefix = prefix, API_key = "l6ln_tsCbdZk8ICVpy6z86vhhb2rFUkFFTfV3wq7L-4", workers = 2)

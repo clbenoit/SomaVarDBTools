@@ -16,7 +16,7 @@
 #'
 #' @noRd
 #' @export
-buildDB_sarek <- function(prefix = NULL, vcf_name = NULL, db_path = NULL) {
+buildDB_sarek_mutect2 <- function(prefix = NULL, vcf_name = NULL, db_path = NULL) {
 
   #db_path <- system.file("extdata","testdata", package = "SomaVarDB")
   #prefix <- "test"
@@ -204,9 +204,7 @@ buildDB_sarek <- function(prefix = NULL, vcf_name = NULL, db_path = NULL) {
         dplyr::select(-group) %>%
         arrange(variant_id, sample) %>%
         ##### sarek specific #####
-        #separate(ad, c("delete","ro","ao")) %>% # haplotype caller
-        separate(ad, c("delete","ro","ao")) %>% # mutect2
-        
+        separate(ad, c("delete","ro","ao")) %>% # haplotype caller
         ##### SEQONE VERSION #########
         #mutate(ao = as.numeric(ao),
         #       af = round(ao/as.numeric(dp), digits = 2), # because empty on seqone results
@@ -215,17 +213,27 @@ buildDB_sarek <- function(prefix = NULL, vcf_name = NULL, db_path = NULL) {
               ##  qa = same as phred score
               #########################         
         #      filter(qa >= 10)
-      ##### SAREK VERSION #########
-      mutate(#ao = as.numeric(ao),
-             af = round(as.numeric(ao)/as.numeric(dp), digits = 2), # because empty on seqone results
-             qa = 10*log10(as.numeric(gq))) %>%
-        ## gq = probability that the call is incorrect = genotype quality
-        ##  qa = same as phred score
-        #########################         
-      filter(qa >= 10)
+      ##### SAREK HAPLOTYPE CALLER VERSION #########
+      # mutate(ao = as.numeric(ao),
+      #        dp = as.numeric(dp),
+      #        gq = as.numeric(gq)) %>%
+      # mutate(
+      #        af = round(ao/dp, digits = 2), # because empty on seqone results
+      #        qa = 10*log10(gq)) %>%
+      #   ## gq = probability that the call is incorrect = genotype quality
+      #   ##  qa = same as phred score
+      #   #########################         
+      # filter(qa >= 10)
+      
+      ##### SAREK MUTECT 2 #########
+      mutate(ao = as.numeric(ao),
+              dp = as.numeric(dp))
+      
       ####################################
       geno.vcf <- geno.vcf[,!(colnames(geno.vcf) %in% c("gq","pl","delete"))]
-      geno.vcf <-  mutate_all(geno.vcf,~replace_na(.,0))# proper to seqOne vcf
+      #geno.vcf <-  mutate_all(geno.vcf,~replace_na(.,0))# proper to seqOne vcf
+      geno.vcf <-  geno.vcf %>% replace_na(list(ao = 0, dp = 0, af = 0, qa = 0))# proper to seqOne vcf
+      
     }
   }) # end of future promises geno
   
@@ -313,7 +321,26 @@ buildDB_sarek <- function(prefix = NULL, vcf_name = NULL, db_path = NULL) {
       try({dbSendQuery(con,"DROP INDEX idx_variant_geno;")})
       dbSendQuery(con,"CREATE INDEX idx_variant_geno ON variant_geno (variant_id);")
     } else {
-      DBI::dbWriteTable( conn = con, name = "variant_geno", value = geno.vcf , append = TRUE)
+      
+      geno.vcf <- geno.vcf %>% inner_join(info.vcf[,c("variant_id","tlod")],
+                                          by = 'variant_id') %>%
+                                rename(qa = "tlod")
+      
+      geno.vcf <- geno.vcf[, c("variant_id",
+                               "sample",
+                               "gt",
+                               "ro",
+                               "ao",
+                               "af",
+                               "dp",
+                               "gt_raw",
+                               'qa',
+                               #"f1r2","f2r1","fad",
+                               #"pgt","pid","ps","sb_1","sb_2",
+                               "sb_3","sb_4")]
+      
+      DBI::dbWriteTable(conn = con, name = "variant_geno",
+                        value = geno.vcf, append = TRUE)
       dbSendQuery(con,"CREATE INDEX idx_geno_info ON variant_geno (variant_id);")
     }
     
